@@ -2,46 +2,39 @@
 #define BLUETOOTH_H
 
 #include <QBluetoothLocalDevice>
-#include <QBluetoothSocket>
 #include <QObject>
+#include <QString>
 
-class QBluetoothServiceInfo;
-class QByteArray;
-class QString;
+class QBluetoothAddress;
 
 class Bluetooth : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QBluetoothLocalDevice::HostMode hostMode READ hostMode WRITE setHostMode NOTIFY hostModeChanged)
+    Q_PROPERTY(QString connectedDevice READ connectedDevice NOTIFY connectedDeviceChanged)
 
 public:
     explicit Bluetooth(QObject *parent = nullptr);
 
-    void setHostMode(QBluetoothLocalDevice::HostMode mode);
     QBluetoothLocalDevice::HostMode hostMode() const;
+    QString connectedDevice() const;
 
 signals:
     void hostModeChanged(QBluetoothLocalDevice::HostMode);
+    void connectedDeviceChanged(const QString& address);
 
 public slots:
-    void onDeviceConnected();
-    void onDeviceDisconnected();
+    void onDeviceConnected(const QBluetoothAddress& address);
+    void onDeviceDisconnected(const QBluetoothAddress& address);
     void onError(QBluetoothLocalDevice::Error error);
     void onPairingConfirm(const QBluetoothAddress& address, const QString& pin);
     void onPairingPin(const QBluetoothAddress& address, const QString& pin);
     void onPairingFinished(const QBluetoothAddress& address, QBluetoothLocalDevice::Pairing pairing);
-
-    void connectToAudioDevice(const QString& device);
-    void onAudioSocketConnected();
-    void onAudioSocketDisconnected();
-    void onError(QBluetoothSocket::SocketError error);
-    void onStateChanged(QBluetoothSocket::SocketState state);
-    void onReadyRead();
+    void setHostMode(QBluetoothLocalDevice::HostMode mode);
 
 private:
     QBluetoothLocalDevice host;
-    QStringList devices;
-    QBluetoothSocket* socket;
+    QString m_ConnectedDevice;
 };
 
 #endif // BLUETOOTH_H

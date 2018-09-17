@@ -1,15 +1,12 @@
 #include "bluetooth.h"
 
-#include <QBluetoothSocket>
-#include <QBluetoothUuid>
-#include <QByteArray>
 #include <QDebug>
 #include <QString>
 
-Bluetooth::Bluetooth(QObject *parent) : QObject(parent), socket(0)
+Bluetooth::Bluetooth(QObject *parent) : QObject(parent)
 {
-    connect(&host, SIGNAL(deviceConnected(QBluetoothAddress)), this, SLOT(onDeviceConnected()));
-    connect(&host, SIGNAL(deviceDisconnected(QBluetoothAddress)), this, SLOT(onDeviceDisconnected()));
+    connect(&host, SIGNAL(deviceConnected(QBluetoothAddress)), this, SLOT(onDeviceConnected(QBluetoothAddress)));
+    connect(&host, SIGNAL(deviceDisconnected(QBluetoothAddress)), this, SLOT(onDeviceDisconnected(QBluetoothAddress)));
     connect(&host, SIGNAL(error(QBluetoothLocalDevice::Error)), this, SLOT(onError(QBluetoothLocalDevice::Error)));
     connect(&host, SIGNAL(pairingDisplayConfirmation(QBluetoothAddress,QString)),
             this, SLOT(onPairingConfirm(QBluetoothAddress,QString)));
@@ -17,6 +14,12 @@ Bluetooth::Bluetooth(QObject *parent) : QObject(parent), socket(0)
             this, SLOT(onPairingPin(QBluetoothAddress,QString)));
     connect(&host, SIGNAL(pairingFinished(QBluetoothAddress,QBluetoothLocalDevice::Pairing)),
             this, SLOT(onPairingFinished(QBluetoothAddress,QBluetoothLocalDevice::Pairing)));
+    connect(&host, SIGNAL(hostModeStateChanged(QBluetoothLocalDevice::HostMode)),
+            this, SIGNAL(hostModeChanged(QBluetoothLocalDevice::HostMode)));
+    QList<QBluetoothAddress> connectedDevices = host.connectedDevices();
+    if  (!connectedDevices.isEmpty()) {
+        m_ConnectedDevice = connectedDevices.first().toString();
+    }
 }
 
 void Bluetooth::setHostMode(QBluetoothLocalDevice::HostMode mode)
@@ -29,14 +32,25 @@ QBluetoothLocalDevice::HostMode Bluetooth::hostMode() const
     return host.hostMode();
 }
 
-void Bluetooth::onDeviceConnected()
+QString Bluetooth::connectedDevice() const
 {
-    qDebug() << "device connected";
+    return m_ConnectedDevice;
 }
 
-void Bluetooth::onDeviceDisconnected()
+void Bluetooth::onDeviceConnected(const QBluetoothAddress &address)
 {
-    qDebug() << "device disconnected";
+    qDebug() << "device connected" << address;
+    host.setHostMode(QBluetoothLocalDevice::HostConnectable);
+    host.requestPairing(address, QBluetoothLocalDevice::AuthorizedPaired);
+    m_ConnectedDevice = address.toString();
+    emit connectedDeviceChanged(m_ConnectedDevice);
+}
+
+void Bluetooth::onDeviceDisconnected(const QBluetoothAddress &address)
+{
+    qDebug() << "device disconnected" << address;
+    m_ConnectedDevice.clear();
+    emit connectedDeviceChanged(m_ConnectedDevice);
 }
 
 void Bluetooth::onError(QBluetoothLocalDevice::Error error)
@@ -50,9 +64,6 @@ void Bluetooth::onError(QBluetoothLocalDevice::Error error)
         break;
     case QBluetoothLocalDevice::UnknownError:
         qDebug() << "device: unknown error";
-        break;
-    default:
-        qDebug() << "device: unhandled error: " << error;
         break;
     }
 }
@@ -75,111 +86,9 @@ void Bluetooth::onPairingFinished(const QBluetoothAddress &address, QBluetoothLo
         qDebug() << "local device" << address << "unpaired";
         break;
     case QBluetoothLocalDevice::Paired:
-    case QBluetoothLocalDevice::AuthorizedPaired: {
+    case QBluetoothLocalDevice::AuthorizedPaired:
         qDebug() << "local device" << address
                  << (pairing == QBluetoothLocalDevice::Paired ? "paired" : "paired (authorized)");
-        if (socket) {
-            socket->close();
-            socket->deleteLater();
-        }
-        socket = new QBluetoothSocket(QBluetoothServiceInfo::L2capProtocol, this);
-        connect(socket, SIGNAL(connected()), this, SLOT(onAudioSocketConnected()));
-        connect(socket, SIGNAL(disconnected()), this, SLOT(onAudioSocketDisconnected()));
-        connect(socket, SIGNAL(error(QBluetoothSocket::SocketError)), this,
-                SLOT(onError(QBluetoothSocket::SocketError)));
-        connect(socket, SIGNAL(stateChanged(QBluetoothSocket::SocketState)),
-                this, SLOT(onStateChanged(QBluetoothSocket::SocketState)));
-        connect(socket, SIGNAL(readyRead()), this, SLOT(onReadyRead()));
-        socket->connectToService(QBluetoothAddress(address), QBluetoothUuid(QBluetoothUuid::AudioSource));
         break;
     }
-    default:
-        qDebug() << "unhandled pairing for" << address << ":" << pairing;
-        break;
-    }
-}
-
-void Bluetooth::connectToAudioDevice(const QString &device)
-{
-    host.setHostMode(QBluetoothLocalDevice::HostDiscoverable);
-    host.requestPairing(QBluetoothAddress(device), QBluetoothLocalDevice::AuthorizedPaired);
-}
-
-void Bluetooth::onAudioSocketConnected()
-{
-    qDebug() << "audio socket connected";
-}
-
-void Bluetooth::onAudioSocketDisconnected()
-{
-    qDebug() << "audio socket disconnected";
-}
-
-void Bluetooth::onError(QBluetoothSocket::SocketError error)
-{
-    switch (error) {
-    case QBluetoothSocket::UnknownSocketError:
-        qDebug() << "socket: unknown error";
-        break;
-    case QBluetoothSocket::NoSocketError:
-        qDebug() << "socket: no error";
-        break;
-    case QBluetoothSocket::HostNotFoundError:
-        qDebug() << "socket: host not found";
-        break;
-    case QBluetoothSocket::ServiceNotFoundError:
-        qDebug() << "socket: service not found";
-        break;
-    case QBluetoothSocket::NetworkError:
-        qDebug() << "socket: network error";
-        break;
-    case QBluetoothSocket::UnsupportedProtocolError:
-        qDebug() << "socket: unsupported protocol";
-        break;
-    case QBluetoothSocket::OperationError:
-        qDebug() << "socket: operation error";
-        break;
-    case QBluetoothSocket::RemoteHostClosedError:
-        qDebug() << "socket: remote host closed";
-        break;
-    default:
-        qDebug() << "socket: unhandled error: " << error;
-        break;
-    }
-}
-
-void Bluetooth::onStateChanged(QBluetoothSocket::SocketState state)
-{
-    switch (state) {
-    case QBluetoothSocket::UnconnectedState:
-        qDebug() << "socket state: unconnected";
-        break;
-    case QBluetoothSocket::ServiceLookupState:
-        qDebug() << "socket state: service lookup";
-        break;
-    case QBluetoothSocket::ConnectingState:
-        qDebug() << "socket state: connecting";
-        break;
-    case QBluetoothSocket::ConnectedState:
-        qDebug() << "socket state: connected";
-        break;
-    case QBluetoothSocket::BoundState:
-        qDebug() << "socket state: bound";
-        break;
-    case QBluetoothSocket::ClosingState:
-        qDebug() << "socket state: closing";
-        break;
-    case QBluetoothSocket::ListeningState:
-        qDebug() << "socket state: listening";
-        break;
-    default:
-        qDebug() << "unknown socket state: " << state;
-        break;
-    }
-}
-
-void Bluetooth::onReadyRead()
-{
-    QByteArray data = socket->read(335);
-    qDebug() << "got data:" << data;
 }

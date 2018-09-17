@@ -1,6 +1,6 @@
 import QtQuick 2.9
 import QtQuick.Controls 2.2
-import QtBluetooth 5.2
+import QtBluetooth 5.9
 
 import se.dalakolonin.bluetooth 1.0
 
@@ -9,52 +9,19 @@ ApplicationWindow {
     width: 320
     height: 240
     title: qsTr("Tabs")
+    property string connectedDeviceName: bluetooth.connectedDevice
 
     Bluetooth {
         id: bluetooth
         hostMode: QBluetoothLocalDevice.HostConnectable
     }
 
-    BluetoothDiscoveryModel {
-        id: btModel
-        running: false
-        discoveryMode: BluetoothDiscoveryModel.DeviceDiscovery
-        uuidFilter: "0000110a-0000-1000-8000-00805f9b34fb"
-        onServiceDiscovered: {
-            var str = "Found new service"
-            str += ", name: " + service.deviceName
-            str += ", address: " + service.deviceAddress
-            str += ", registered: " + service.registered
-            str += ", service: " + service.serviceName
-            str += ", description: " + service.serviceDescription
-            str += ", protocol: "
-            switch (service.serviceProtocol) {
-            case BluetoothService.RfcommProtocol:
-                str += "RFCOMM"; break
-            case BluetoothService.L2CapProtocol:
-                str += "L2CAP"; break
-            case BluetoothService.UnknownProtocol:
-            default:
-                str += "unknown"; break
-            }
-            str += ", UUID: " + service.serviceUuid
-            console.log(str)
-        }
-        onDeviceDiscovered: console.log("New device: " + device)
-        onErrorChanged: {
-                switch (error) {
-                case BluetoothDiscoveryModel.PoweredOffError:
-                    console.log("Error: Bluetooth device not turned on"); break;
-                case BluetoothDiscoveryModel.InputOutputError:
-                    console.log("Error: Bluetooth I/O Error"); break;
-                case BluetoothDiscoveryModel.InvalidBluetoothAdapterError:
-                    console.log("Error: Invalid Bluetooth Adapter Error"); break;
-                case BluetoothDiscoveryModel.NoError:
-                    break;
-                default:
-                    console.log("Error: Unknown Error"); break;
-                }
-        }
+    function is_pairing() {
+        if (bluetooth.hostMode === QBluetoothLocalDevice.HostDiscoverable
+            || bluetooth.hostMode === QBluetoothLocalDevice.HostDiscoverableLimitedInquiry)
+            return true
+        else
+            return false
     }
 
     SwipeView {
@@ -64,6 +31,7 @@ ApplicationWindow {
 
         Page1Form {
             id: page1Form
+
             busy {
                 SequentialAnimation on color {
                     id: busyThrobber
@@ -81,6 +49,15 @@ ApplicationWindow {
                     }
                     loops: Animation.Infinite
                 }
+                visible: is_pairing()
+            }
+            pairingButton {
+                enabled: !is_pairing()
+                onClicked: bluetooth.hostMode = QBluetoothLocalDevice.HostDiscoverable
+            }
+
+            deviceLabel {
+                text: connectedDeviceName ? connectedDeviceName : "<no device>"
             }
         }
 
