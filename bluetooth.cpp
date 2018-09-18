@@ -1,5 +1,6 @@
 #include "bluetooth.h"
 
+#include <QBluetoothDeviceInfo>
 #include <QDebug>
 #include <QString>
 
@@ -18,8 +19,12 @@ Bluetooth::Bluetooth(QObject *parent) : QObject(parent)
             this, SIGNAL(hostModeChanged(QBluetoothLocalDevice::HostMode)));
     QList<QBluetoothAddress> connectedDevices = host.connectedDevices();
     if  (!connectedDevices.isEmpty()) {
-        m_ConnectedDevice = connectedDevices.first().toString();
+        m_ConnectedDevice = connectedDevices.first();
     }
+
+    connect(&m_DeviceDiscoveryAgent, SIGNAL(deviceDiscovered(QBluetoothDeviceInfo)),
+            this, SLOT(deviceDiscovered(QBluetoothDeviceInfo)));
+    m_DeviceDiscoveryAgent.start();
 }
 
 void Bluetooth::setHostMode(QBluetoothLocalDevice::HostMode mode)
@@ -34,7 +39,11 @@ QBluetoothLocalDevice::HostMode Bluetooth::hostMode() const
 
 QString Bluetooth::connectedDevice() const
 {
-    return m_ConnectedDevice;
+    QString device = m_KnownDevices[m_ConnectedDevice];
+    if (device.isEmpty() && !m_ConnectedDevice.isNull()) {
+        device = m_ConnectedDevice.toString();
+    }
+    return device;
 }
 
 void Bluetooth::onDeviceConnected(const QBluetoothAddress &address)
@@ -42,15 +51,19 @@ void Bluetooth::onDeviceConnected(const QBluetoothAddress &address)
     qDebug() << "device connected" << address;
     host.setHostMode(QBluetoothLocalDevice::HostConnectable);
     host.requestPairing(address, QBluetoothLocalDevice::AuthorizedPaired);
-    m_ConnectedDevice = address.toString();
-    emit connectedDeviceChanged(m_ConnectedDevice);
+    m_ConnectedDevice = address;
+    QString deviceName = m_KnownDevices[address];
+    if (deviceName.isEmpty()) {
+        deviceName = address.toString();
+    }
+    emit connectedDeviceChanged(deviceName);
 }
 
 void Bluetooth::onDeviceDisconnected(const QBluetoothAddress &address)
 {
     qDebug() << "device disconnected" << address;
     m_ConnectedDevice.clear();
-    emit connectedDeviceChanged(m_ConnectedDevice);
+    emit connectedDeviceChanged(QString());
 }
 
 void Bluetooth::onError(QBluetoothLocalDevice::Error error)
@@ -88,7 +101,21 @@ void Bluetooth::onPairingFinished(const QBluetoothAddress &address, QBluetoothLo
     case QBluetoothLocalDevice::Paired:
     case QBluetoothLocalDevice::AuthorizedPaired:
         qDebug() << "local device" << address
-                 << (pairing == QBluetoothLocalDevice::Paired ? "paired" : "paired (authorized)");
+                 << (pairing == QBluetoothLocalDevice::Paired
+                    ? "paired" : "paired (authorized)");
         break;
+    }
+}
+
+void Bluetooth::deviceDiscovered(const QBluetoothDeviceInfo &device)
+{
+    const QBluetoothAddress address = device.address();
+    QString &name = m_KnownDevices[address];
+    bool wasEmpty = name.isEmpty();
+    name = device.name();
+    if (address == m_ConnectedDevice && wasEmpty) {
+        qDebug() << "Updating connected device name to" << name
+                 << "- was" << address.toString();
+        emit connectedDeviceChanged(name);
     }
 }
