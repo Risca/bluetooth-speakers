@@ -13,7 +13,6 @@ ApplicationWindow {
 
     Bluetooth {
         id: bluetooth
-        hostMode: QBluetoothLocalDevice.HostConnectable
     }
 
     function is_pairing() {

@@ -37,6 +37,8 @@ private slots:
     void onPairingPin(const QBluetoothAddress& address, const QString& pin);
     void onPairingFinished(const QBluetoothAddress& address, QBluetoothLocalDevice::Pairing pairing);
     void deviceDiscovered(const QBluetoothDeviceInfo& info);
+    void onDeviceDiscoveryFinished();
+    void onHostModeChanged(QBluetoothLocalDevice::HostMode mode);
 
 private:
     QBluetoothLocalDevice host;

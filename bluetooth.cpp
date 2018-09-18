@@ -17,16 +17,22 @@ Bluetooth::Bluetooth(QObject *parent) : QObject(parent)
             this, SLOT(onPairingFinished(QBluetoothAddress,QBluetoothLocalDevice::Pairing)));
     connect(&host, SIGNAL(hostModeStateChanged(QBluetoothLocalDevice::HostMode)),
             this, SIGNAL(hostModeChanged(QBluetoothLocalDevice::HostMode)));
-    QList<QBluetoothAddress> connectedDevices = host.connectedDevices();
-    if  (!connectedDevices.isEmpty()) {
-        m_ConnectedDevice = connectedDevices.first();
-    }
+    connect(&host, SIGNAL(hostModeStateChanged(QBluetoothLocalDevice::HostMode)),
+            this, SLOT(onHostModeChanged(QBluetoothLocalDevice::HostMode)));
 
     connect(&m_DeviceDiscoveryAgent, SIGNAL(deviceDiscovered(QBluetoothDeviceInfo)),
             this, SLOT(deviceDiscovered(QBluetoothDeviceInfo)));
     connect(&m_DeviceDiscoveryAgent, SIGNAL(finished()),
-            &m_DeviceDiscoveryAgent, SLOT(start()));
-    m_DeviceDiscoveryAgent.start();
+            this, SLOT(onDeviceDiscoveryFinished()));
+
+    QList<QBluetoothAddress> connectedDevices = host.connectedDevices();
+    if  (connectedDevices.isEmpty()) {
+        host.setHostMode(QBluetoothLocalDevice::HostDiscoverable);
+    }
+    else {
+        m_ConnectedDevice = connectedDevices.first();
+        m_DeviceDiscoveryAgent.start();
+    }
 }
 
 void Bluetooth::setHostMode(QBluetoothLocalDevice::HostMode mode)
@@ -66,6 +72,7 @@ void Bluetooth::onDeviceDisconnected(const QBluetoothAddress &address)
     qDebug() << "device disconnected" << address;
     m_ConnectedDevice.clear();
     emit connectedDeviceChanged(QString());
+    setHostMode(QBluetoothLocalDevice::HostDiscoverable);
 }
 
 void Bluetooth::onError(QBluetoothLocalDevice::Error error)
@@ -111,6 +118,7 @@ void Bluetooth::onPairingFinished(const QBluetoothAddress &address, QBluetoothLo
 
 void Bluetooth::deviceDiscovered(const QBluetoothDeviceInfo &device)
 {
+    qDebug() << "discovered device:" << device.name() << "(" << device.address() << ")";
     const QBluetoothAddress address = device.address();
     QString &name = m_KnownDevices[address];
     bool wasEmpty = name.isEmpty();
@@ -119,5 +127,33 @@ void Bluetooth::deviceDiscovered(const QBluetoothDeviceInfo &device)
         qDebug() << "Updating connected device name to" << name
                  << "- was" << address.toString();
         emit connectedDeviceChanged(name);
+    }
+}
+
+void Bluetooth::onDeviceDiscoveryFinished()
+{
+    switch (hostMode()) {
+    case QBluetoothLocalDevice::HostConnectable:
+        m_DeviceDiscoveryAgent.start();
+        break;
+    case QBluetoothLocalDevice::HostPoweredOff:
+    case QBluetoothLocalDevice::HostDiscoverable:
+    case QBluetoothLocalDevice::HostDiscoverableLimitedInquiry:
+        m_DeviceDiscoveryAgent.stop();
+        break;
+    }
+}
+
+void Bluetooth::onHostModeChanged(QBluetoothLocalDevice::HostMode mode)
+{
+    switch (mode) {
+    case QBluetoothLocalDevice::HostConnectable:
+        m_DeviceDiscoveryAgent.start();
+        break;
+    case QBluetoothLocalDevice::HostPoweredOff:
+    case QBluetoothLocalDevice::HostDiscoverable:
+    case QBluetoothLocalDevice::HostDiscoverableLimitedInquiry:
+        m_DeviceDiscoveryAgent.stop();
+        break;
     }
 }
