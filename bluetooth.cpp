@@ -24,6 +24,8 @@ Bluetooth::Bluetooth(QObject *parent) : QObject(parent)
 
     connect(&m_DeviceDiscoveryAgent, SIGNAL(deviceDiscovered(QBluetoothDeviceInfo)),
             this, SLOT(deviceDiscovered(QBluetoothDeviceInfo)));
+    connect(&m_DeviceDiscoveryAgent, SIGNAL(finished()),
+            &m_DeviceDiscoveryAgent, SLOT(start()));
     m_DeviceDiscoveryAgent.start();
 }
 
