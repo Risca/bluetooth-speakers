@@ -5,10 +5,7 @@ import QtBluetooth 5.2
 Page {
     id: page
     property alias busy: busy
-    property alias pairingButton: pairingButton
     property alias deviceLabel: deviceLabel
-    width: 320
-    height: 240
 
     header: Rectangle {
         id: busy
@@ -22,7 +19,7 @@ Page {
 
         Text {
             id: scanText
-            text: qsTr("Pairing")
+            text: qsTr("Connecting...")
             font.bold: true
             font.pixelSize: Qt.application.font.pixelSize * 2
             padding: 10
@@ -30,31 +27,14 @@ Page {
         }
     }
 
-    Button {
-        id: pairingButton
-        text: "Pair!"
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-    }
-
-    Text {
-        id: text1
-        text: qsTr("Currently connected to:")
-        font.pixelSize: 24
-    }
-
     Text {
         id: deviceLabel
-        anchors.top: text1.bottom
-        anchors.topMargin: 6
-        anchors.left: parent.left
-        anchors.leftMargin: 10
+        anchors.centerIn: parent
         font.pixelSize: 24
     }
 }
 
 /*##^## Designer {
-    D{i:4;anchors_x:12;anchors_y:6}D{i:5;anchors_x:38;anchors_y:41}
+    D{i:0;autoSize:true;height:480;width:640}D{i:4;anchors_x:12;anchors_y:6}
 }
  ##^##*/

@@ -13,6 +13,14 @@ ApplicationWindow {
 
     Bluetooth {
         id: bluetooth
+        onConnectedDeviceChanged: {
+            if (address) {
+                swipeView.currentIndex = 1
+            }
+            else {
+                swipeView.currentIndex = 0
+            }
+        }
     }
 
     function is_pairing() {
@@ -50,16 +58,11 @@ ApplicationWindow {
                 }
                 visible: is_pairing()
             }
-            pairingButton {
-                enabled: !is_pairing()
-                onClicked: bluetooth.hostMode = QBluetoothLocalDevice.HostDiscoverable
-            }
 
             deviceLabel {
                 text: connectedDeviceName ? connectedDeviceName : "<no device>"
             }
         }
-
         Page2Form {
         }
     }
@@ -69,10 +72,10 @@ ApplicationWindow {
         currentIndex: swipeView.currentIndex
 
         TabButton {
-            text: qsTr("Pairing")
+            text: qsTr("Connect")
         }
         TabButton {
-            text: qsTr("Page 2")
+            text: qsTr("Controls")
         }
     }
 }
