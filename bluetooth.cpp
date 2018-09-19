@@ -146,14 +146,21 @@ void Bluetooth::onDeviceDiscoveryFinished()
 
 void Bluetooth::onHostModeChanged(QBluetoothLocalDevice::HostMode mode)
 {
-    switch (mode) {
-    case QBluetoothLocalDevice::HostConnectable:
-        m_DeviceDiscoveryAgent.start();
-        break;
-    case QBluetoothLocalDevice::HostPoweredOff:
-    case QBluetoothLocalDevice::HostDiscoverable:
-    case QBluetoothLocalDevice::HostDiscoverableLimitedInquiry:
-        m_DeviceDiscoveryAgent.stop();
-        break;
+    if (m_ConnectedDevice.isNull()) {
+        if (mode != QBluetoothLocalDevice::HostDiscoverable) {
+            setHostMode(QBluetoothLocalDevice::HostDiscoverable);
+        }
+    }
+    else {
+        switch (mode) {
+        case QBluetoothLocalDevice::HostConnectable:
+            m_DeviceDiscoveryAgent.start();
+            break;
+        case QBluetoothLocalDevice::HostPoweredOff:
+        case QBluetoothLocalDevice::HostDiscoverable:
+        case QBluetoothLocalDevice::HostDiscoverableLimitedInquiry:
+            m_DeviceDiscoveryAgent.stop();
+            break;
+        }
     }
 }
